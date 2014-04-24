@@ -2,6 +2,7 @@
 
 use Evenement\EventEmitter;
 use React\EventLoop\LoopInterface;
+use React\Promise\Deferred;
 use Socket\React\Datagram\Factory as DatagramFactory;
 use \InvalidArgumentException;
 
@@ -12,21 +13,32 @@ class Wol extends EventEmitter
     
     public function __construct(LoopInterface $loop)
     {
-        $factory = new DatagramFactory($loop);
-        $this->socket = $factory->createUdp4();
-        $this->socket->setOptionBroadcast();
-        
-        $this->socket->on('message', array($this, 'handleMessage'));
-        $this->socket->pause();
+        $this->loop = $loop;
     }
     
-    public function send($mac)
+    public function send($mac, $address = null)
     {
+        if ($address === null) {
+            $address = $this->address;
+        }
+
         $mac = $this->coerceMac($mac);
         
         $message = "\xFF\xFF\xFF\xFF\xFF\xFF" . str_repeat($this->formatMac($mac), 16);
-        
-        $this->socket->send($message, $this->address);
+        $deferred = new Deferred();
+
+        $factory = new DatagramFactory($this->loop);
+        $factory->createClient($address, array(
+            'broadcast' => true,
+        ))->then(function($socket) use ($message, $deferred) {
+            $socket->send($message);
+            $socket->end();
+            $deferred->resolve();
+        }, function($e) use ($deferred) {
+            $deferred->reject($e);
+        });
+
+        return $deferred->promise();
     }
     
     public function handleMessage($message, $remote)
