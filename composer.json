@@ -9,7 +9,10 @@
         "clue/socket-react": "dev-master@dev"
     },
     "autoload": {
-        "classmap": [""]
+        "psr-4": {
+            "Clue\\React\\Wol\\": "src/",
+            "Clue\\React\\Tests\\Wol\\": "tests/"
+        }
     },
     "bin": ["bin/wol.php"]
 }
